@@ -5,23 +5,25 @@ using System.Collections;
 
 [RequireComponent(typeof(CharacterController))]
 [RequireComponent(typeof(PhotonView))]
+[RequireComponent(typeof(AudioSource))] // NEW: require audio for pickup sounds
 public class PlayerMovement3D : MonoBehaviourPun, IPunObservable
 {
     Animator animator;
+    AudioSource audioSource; // NEW: reference to play sounds
 
     [Header("Movement")]
     public float walkSpeed = 6f;
     public float runSpeed = 9f;
-    public float acceleration = 20f; // higher = snappier speed change
+    public float acceleration = 20f; 
     [Tooltip("How quickly remote players interpolate to networked position")]
     public float positionLerpSpeed = 10f;
     [Tooltip("How quickly remote players interpolate to networked rotation")]
     public float rotationLerpSpeed = 10f;
 
     [Header("Jump & Gravity")]
-    public float jumpHeight = 1.6f; // world units
+    public float jumpHeight = 1.6f;
     public float gravity = -9.81f;
-    public float groundedStick = -2f; // small downward force to keep grounded
+    public float groundedStick = -2f;
 
     [Header("Ground Check (optional)")]
     public LayerMask groundLayers;
@@ -29,7 +31,7 @@ public class PlayerMovement3D : MonoBehaviourPun, IPunObservable
     public float groundCheckRadius = 0.4f;
 
     [Header("Misc")]
-    public bool toggleRunWithLeftShift = true; // hold shift to run (or toggle)
+    public bool toggleRunWithLeftShift = true;
     public bool lockCursor = true;
 
     // Internals
@@ -53,6 +55,7 @@ public class PlayerMovement3D : MonoBehaviourPun, IPunObservable
     {
         animator = GetComponentInChildren<Animator>();
         cc = GetComponent<CharacterController>();
+        audioSource = GetComponent<AudioSource>(); // NEW: grab the AudioSource
         currentSpeed = walkSpeed;
 
         if (groundCheck == null)
@@ -173,6 +176,15 @@ public class PlayerMovement3D : MonoBehaviourPun, IPunObservable
         jumpMultiplier = multiplier;
         yield return new WaitForSeconds(duration);
         jumpMultiplier = 1f;
+    }
+
+    // === NEW: Play pickup sound ===
+    public void PlayPickupSound(AudioClip clip)
+    {
+        if (photonView.IsMine && audioSource != null && clip != null)
+        {
+            audioSource.PlayOneShot(clip);
+        }
     }
 
     // === Networking ===

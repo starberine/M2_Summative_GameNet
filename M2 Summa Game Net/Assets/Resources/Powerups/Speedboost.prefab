@@ -131,7 +131,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   type: 0
-  speedMultiplier: 2
+  speedMultiplier: 5
   speedDuration: 5
-  jumpMultiplier: 2
+  jumpMultiplier: 5
   jumpDuration: 5
+  pickupSound: {fileID: 8300000, guid: 63a03ab810db281468a2af888a6c77ec, type: 3}

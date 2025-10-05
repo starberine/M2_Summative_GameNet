@@ -15,6 +15,9 @@ public class PowerUp : MonoBehaviourPun
     public float jumpMultiplier = 5f;
     public float jumpDuration = 5f;
 
+    [Header("Audio")]
+    public AudioClip pickupSound; // assign in Inspector per prefab
+
     private void OnTriggerEnter(Collider other)
     {
         Debug.Log($"[PowerUp] {name} trigger entered by {other.name}, tag={other.tag}");
@@ -36,6 +39,12 @@ public class PowerUp : MonoBehaviourPun
                 {
                     Debug.Log("[PowerUp] Applying Jump Boost");
                     player.ApplyJumpBoost(jumpMultiplier, jumpDuration);
+                }
+
+                // 🔊 Play pickup sound locally
+                if (pickupSound != null)
+                {
+                    player.PlayPickupSound(pickupSound);
                 }
             }
 

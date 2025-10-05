@@ -51,6 +51,6 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "M2 ACT 1 Game Net.sln",
+    "dotnet.defaultSolution": "M2 Summa Game Net.sln",
     "git.ignoreLimitWarning": true
 }

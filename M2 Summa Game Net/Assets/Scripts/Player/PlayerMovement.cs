@@ -1,6 +1,7 @@
 using UnityEngine;
 using Photon.Pun;
 using Photon.Realtime;
+using System.Collections;
 
 [RequireComponent(typeof(CharacterController))]
 [RequireComponent(typeof(PhotonView))]
@@ -31,14 +32,18 @@ public class PlayerMovement3D : MonoBehaviourPun, IPunObservable
     public bool toggleRunWithLeftShift = true; // hold shift to run (or toggle)
     public bool lockCursor = true;
 
-    // internals
+    // Internals
     CharacterController cc;
     float currentSpeed;
-    Vector3 velocity; // used for vertical gravity/jump
+    Vector3 velocity; 
     bool running = false;
     bool runToggled = false;
 
-    // networked values (received for remote objects)
+    // Power-up multipliers
+    public float speedMultiplier = 1f;
+    public float jumpMultiplier = 1f;
+
+    // Networked values
     Vector3 networkPosition;
     Quaternion networkRotation;
     float networkVerticalVelocity = 0f;
@@ -58,7 +63,6 @@ public class PlayerMovement3D : MonoBehaviourPun, IPunObservable
             groundCheck = go.transform;
         }
 
-        // initialize network targets
         networkPosition = transform.position;
         networkRotation = transform.rotation;
     }
@@ -70,18 +74,10 @@ public class PlayerMovement3D : MonoBehaviourPun, IPunObservable
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
-
-        // If this object is not ours, we don't want the CharacterController to interfere with interpolation.
-        if (!photonView.IsMine)
-        {
-            // Optionally keep CharacterController but don't use it for movement.
-            // We won't call cc.Move for remote players; we'll lerp transform.
-        }
     }
 
     void Update()
     {
-        // If this is the local player's avatar, process input & physics
         if (photonView.IsMine)
         {
             HandleRunInput();
@@ -89,12 +85,9 @@ public class PlayerMovement3D : MonoBehaviourPun, IPunObservable
         }
         else
         {
-            // Smoothly interpolate position & rotation for remote players
+            // Smooth remote player interpolation
             transform.position = Vector3.Lerp(transform.position, networkPosition, Time.deltaTime * positionLerpSpeed);
             transform.rotation = Quaternion.Slerp(transform.rotation, networkRotation, Time.deltaTime * rotationLerpSpeed);
-
-            // Apply vertical smoothing to give jump/land feel (optional)
-            // We don't drive the CharacterController for remote - just lerp position as above.
         }
     }
 
@@ -130,10 +123,8 @@ public class PlayerMovement3D : MonoBehaviourPun, IPunObservable
 
         Vector3 desiredMove = transform.TransformDirection(input);
 
-        float targetSpeed = running ? runSpeed : walkSpeed;
+        float targetSpeed = (running ? runSpeed : walkSpeed) * speedMultiplier;
         currentSpeed = Mathf.MoveTowards(currentSpeed, targetSpeed * input.magnitude, acceleration * Time.deltaTime);
-
-        Vector3 horizontal = desiredMove * currentSpeed;
 
         if (IsGrounded())
         {
@@ -142,7 +133,7 @@ public class PlayerMovement3D : MonoBehaviourPun, IPunObservable
 
             if (Input.GetButtonDown("Jump"))
             {
-                velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+                velocity.y = Mathf.Sqrt(jumpHeight * jumpMultiplier * -2f * gravity);
             }
         }
         else
@@ -153,33 +144,54 @@ public class PlayerMovement3D : MonoBehaviourPun, IPunObservable
         Vector3 move = desiredMove * currentSpeed + Vector3.up * velocity.y;
         cc.Move(move * Time.deltaTime);
 
-        float moveMagnitude = input.magnitude; // 0 to 1
-    animator.SetFloat("Speed", moveMagnitude, 0.1f, Time.deltaTime * 10f);
-
-
-
+        float moveMagnitude = input.magnitude;
+        if (animator) animator.SetFloat("Speed", moveMagnitude, 0.1f, Time.deltaTime * 10f);
     }
 
-    // IPunObservable implementation: sync position, rotation, vertical velocity
+    // === Power-up Methods ===
+    public void ApplySpeedBoost(float multiplier, float duration)
+    {
+        StopCoroutine("SpeedBoostRoutine");
+        StartCoroutine(SpeedBoostRoutine(multiplier, duration));
+    }
+
+    IEnumerator SpeedBoostRoutine(float multiplier, float duration)
+    {
+        speedMultiplier = multiplier;
+        yield return new WaitForSeconds(duration);
+        speedMultiplier = 1f;
+    }
+
+    public void ApplyJumpBoost(float multiplier, float duration)
+    {
+        StopCoroutine("JumpBoostRoutine");
+        StartCoroutine(JumpBoostRoutine(multiplier, duration));
+    }
+
+    IEnumerator JumpBoostRoutine(float multiplier, float duration)
+    {
+        jumpMultiplier = multiplier;
+        yield return new WaitForSeconds(duration);
+        jumpMultiplier = 1f;
+    }
+
+    // === Networking ===
     public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
     {
         if (stream.IsWriting)
         {
-            // local player -> send state
             stream.SendNext(transform.position);
             stream.SendNext(transform.rotation);
             stream.SendNext(velocity.y);
         }
         else
         {
-            // remote -> receive state
             networkPosition = (Vector3)stream.ReceiveNext();
             networkRotation = (Quaternion)stream.ReceiveNext();
             networkVerticalVelocity = (float)stream.ReceiveNext();
 
             if (firstNetworkUpdate)
             {
-                // immediately snap on first update to avoid long lerp from origin
                 transform.position = networkPosition;
                 transform.rotation = networkRotation;
                 firstNetworkUpdate = false;

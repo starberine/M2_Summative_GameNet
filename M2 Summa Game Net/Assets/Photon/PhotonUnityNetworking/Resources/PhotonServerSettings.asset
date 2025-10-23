@@ -47,6 +47,8 @@ MonoBehaviour:
   - RPC_CancelCountdown
   - RPC_UpdatePlayerName
   - RPC_DestroyPowerUp
+  - RPC_BroadcastHealth
+  - RPC_TakeDamage
   DisableAutoOpenWizard: 1
   ShowSettings: 1
   DevRegionSetOnce: 1

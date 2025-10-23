@@ -1,23 +1,34 @@
 using UnityEngine;
 
 /// <summary>
-/// Simple bullet helper: handles lifetime and deactivation on hit (works with pooling)
-/// Put this in a file named "Bullet.cs".
+/// Simple bullet helper: handles lifetime and deactivation on hit (works with pooling).
+/// Exposes IsPooled so other scripts can decide whether to destroy or deactivate bullets.
 /// </summary>
 public class Bullet : MonoBehaviour
 {
+    public bool IsPooled { get; private set; } = false;
+
     private float lifetime = 5f;
     private float spawnTime;
-    private bool pooled = false;
 
+    /// <summary>
+    /// Call this to start the bullet. isPooled = true means this bullet belongs to a pool and should be deactivated, not destroyed.
+    /// </summary>
     public void Launch(float life, bool isPooled)
     {
         lifetime = life;
-        pooled = isPooled;
+        IsPooled = isPooled;
         spawnTime = Time.time;
         CancelInvoke();
-        if (!pooled)
+
+        // If not pooled, schedule a destroy. If pooled, Update() will handle lifetime and call Deactivate().
+        if (!IsPooled)
             Invoke(nameof(DestroySelf), lifetime);
+        else
+        {
+            // Ensure the object is active (pool may reuse)
+            // spawnTime used in Update()
+        }
     }
 
     void OnEnable()
@@ -27,33 +38,29 @@ public class Bullet : MonoBehaviour
 
     void Update()
     {
-        if (pooled && Time.time - spawnTime >= lifetime)
+        if (IsPooled && Time.time - spawnTime >= lifetime)
             Deactivate();
     }
 
     void OnCollisionEnter(Collision other)
     {
+        // On hit, deactivate / destroy immediately. You can add damage logic here.
         Deactivate();
     }
 
-    void Deactivate()
+    /// <summary>
+    /// Deactivate the bullet (return to pool) or destroy when not pooled.
+    /// </summary>
+    public void Deactivate()
     {
         Rigidbody rb = GetComponent<Rigidbody>();
         if (rb != null)
             rb.velocity = Vector3.zero;
 
-        if (pooled)
-        {
-            // Re-parent to global pool if present (keeps scene hierarchy tidy)
-            if (BulletPool.Instance != null && BulletPool.Instance.PoolTransform != null)
-                transform.SetParent(BulletPool.Instance.PoolTransform, true);
-
+        if (IsPooled)
             gameObject.SetActive(false);
-        }
         else
-        {
             Destroy(gameObject);
-        }
     }
 
     void DestroySelf()

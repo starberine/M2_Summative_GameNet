@@ -104,6 +104,11 @@ public class SimpleShooter : MonoBehaviour
             isPooled = false;
         }
 
+        // --- Assign owner BEFORE activating the bullet so it won't hit its owner immediately ---
+        BulletOwner bo = bulletObj.GetComponent<BulletOwner>();
+        if (bo == null) bo = bulletObj.AddComponent<BulletOwner>();
+        bo.owner = this.gameObject;
+
         bulletObj.transform.position = origin.position;
         bulletObj.transform.rotation = Quaternion.LookRotation(sourceCamera.transform.forward);
         bulletObj.SetActive(true);
